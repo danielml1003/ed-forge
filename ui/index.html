@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ed-forge</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <h1>ed-forge</h1>
+        <p>Original game companion platform: discover apps, save your set, control runtime.</p>
+      </header>
+
+      <nav class="tabs card">
+        <button class="tab active" data-target="screen-discover">Discover</button>
+        <button class="tab" data-target="screen-library">Library</button>
+        <button class="tab" data-target="screen-runtime">Runtime</button>
+      </nav>
+
+      <section id="screen-discover" class="screen active">
+        <section class="card">
+          <div class="row">
+            <h2>Discover Apps</h2>
+            <button id="discover-refresh">Refresh Sources</button>
+          </div>
+          <p class="muted">No account required. Provider adapters are mocked now and can be wired to live sources later.</p>
+        </section>
+
+        <section class="card grid">
+          <div>
+            <form id="discover-filter-form" class="stack">
+              <label for="discover-query">Search</label>
+              <input id="discover-query" name="query" type="text" placeholder="comp, tracker, recap" />
+
+              <label for="discover-provider">Provider</label>
+              <select id="discover-provider" name="provider">
+                <option value="">All Providers</option>
+              </select>
+
+              <button type="submit">Apply</button>
+            </form>
+            <div id="discover-list" class="list"></div>
+          </div>
+
+          <div>
+            <section class="panel">
+              <h3>App Detail</h3>
+              <div id="discover-detail" class="muted">Pick an app to inspect details.</div>
+            </section>
+            <section class="panel">
+              <h3>Activity</h3>
+              <div id="activity-log" class="log"></div>
+            </section>
+          </div>
+        </section>
+      </section>
+
+      <section id="screen-library" class="screen">
+        <section class="card">
+          <div class="row">
+            <h2>Your Library</h2>
+            <button id="library-refresh">Reload</button>
+          </div>
+          <p id="library-summary" class="muted">No apps saved.</p>
+        </section>
+
+        <section class="card">
+          <div id="library-list" class="list"></div>
+        </section>
+      </section>
+
+      <section id="screen-runtime" class="screen">
+        <section class="card">
+          <h2>Runtime Control</h2>
+          <p class="muted">Tune how the companion runs in the background.</p>
+          <form id="runtime-form" class="stack runtime-form">
+            <label><input id="runtime-low-resource" type="checkbox" /> Low Resource Mode</label>
+            <label><input id="runtime-ingestion" type="checkbox" /> Enable Data Ingestion</label>
+
+            <label for="runtime-sync">Sync Interval (seconds)</label>
+            <input id="runtime-sync" type="number" min="5" max="300" step="5" />
+
+            <button type="submit">Save Runtime Settings</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h3>Runtime Overview</h3>
+          <div id="runtime-overview" class="muted">Loading runtime status...</div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
