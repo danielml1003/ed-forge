@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, State};
+
+mod adapters;
+mod models;
+use models::{StoreItem, StoreProvider};
 
 struct RuntimeState {
     store_catalog: Mutex<Vec<StoreItem>>,
@@ -22,32 +25,6 @@ impl Default for RuntimeState {
             }),
         }
     }
-}
-
-#[derive(Serialize, Clone)]
-struct StoreProvider {
-    id: String,
-    name: String,
-    region: String,
-    #[serde(rename = "sourceUrl")]
-    source_url: String,
-}
-
-#[derive(Serialize, Clone)]
-struct StoreItem {
-    id: String,
-    name: String,
-    category: String,
-    #[serde(rename = "providerId")]
-    provider_id: String,
-    #[serde(rename = "providerName")]
-    provider_name: String,
-    #[serde(rename = "sourceUrl")]
-    source_url: String,
-    #[serde(rename = "priceUsd")]
-    price_usd: f64,
-    rating: f64,
-    stock: u32,
 }
 
 #[derive(Serialize, Clone)]
@@ -338,109 +315,13 @@ fn runtime_build_overview(config: &RuntimeConfig, library: &[LibraryApp]) -> Run
 }
 
 fn store_providers() -> Vec<StoreProvider> {
-    vec![
-        StoreProvider {
-            id: "tftmeta".to_string(),
-            name: "TFTMeta".to_string(),
-            region: "Global".to_string(),
-            source_url: "https://tftmeta.gg".to_string(),
-        },
-        StoreProvider {
-            id: "porofessor".to_string(),
-            name: "Porofessor".to_string(),
-            region: "Global".to_string(),
-            source_url: "https://porofessor.gg".to_string(),
-        },
-    ]
-}
-
-fn tftmeta_items() -> Vec<StoreItem> {
-    vec![
-        StoreItem {
-            id: "tftmeta-comp-scout".to_string(),
-            name: "Comp Scout Pack".to_string(),
-            category: "Team Comp".to_string(),
-            provider_id: "tftmeta".to_string(),
-            provider_name: "TFTMeta".to_string(),
-            source_url: "https://tftmeta.gg".to_string(),
-            price_usd: 2.49,
-            rating: 4.7,
-            stock: 150,
-        },
-        StoreItem {
-            id: "tftmeta-trait-tracker".to_string(),
-            name: "Trait Tracker Widget".to_string(),
-            category: "Overlay Widget".to_string(),
-            provider_id: "tftmeta".to_string(),
-            provider_name: "TFTMeta".to_string(),
-            source_url: "https://tftmeta.gg".to_string(),
-            price_usd: 3.99,
-            rating: 4.5,
-            stock: 80,
-        },
-        StoreItem {
-            id: "tftmeta-level-timer".to_string(),
-            name: "Level Timer HUD".to_string(),
-            category: "HUD".to_string(),
-            provider_id: "tftmeta".to_string(),
-            provider_name: "TFTMeta".to_string(),
-            source_url: "https://tftmeta.gg".to_string(),
-            price_usd: 1.99,
-            rating: 4.2,
-            stock: 210,
-        },
-    ]
-}
-
-fn porofessor_items() -> Vec<StoreItem> {
-    vec![
-        StoreItem {
-            id: "porofessor-match-insight".to_string(),
-            name: "Match Insight Panel".to_string(),
-            category: "Analysis".to_string(),
-            provider_id: "porofessor".to_string(),
-            provider_name: "Porofessor".to_string(),
-            source_url: "https://porofessor.gg".to_string(),
-            price_usd: 4.99,
-            rating: 4.8,
-            stock: 95,
-        },
-        StoreItem {
-            id: "porofessor-rune-assist".to_string(),
-            name: "Rune Assist Module".to_string(),
-            category: "Assistant".to_string(),
-            provider_id: "porofessor".to_string(),
-            provider_name: "Porofessor".to_string(),
-            source_url: "https://porofessor.gg".to_string(),
-            price_usd: 2.99,
-            rating: 4.4,
-            stock: 180,
-        },
-        StoreItem {
-            id: "porofessor-session-recap".to_string(),
-            name: "Session Recap Exporter".to_string(),
-            category: "Reporting".to_string(),
-            provider_id: "porofessor".to_string(),
-            provider_name: "Porofessor".to_string(),
-            source_url: "https://porofessor.gg".to_string(),
-            price_usd: 5.49,
-            rating: 4.6,
-            stock: 70,
-        },
-    ]
+    let adapters = adapters::configured_adapters();
+    adapters::providers_from_adapters(&adapters)
 }
 
 fn build_store_catalog() -> Vec<StoreItem> {
-    let mut catalog = Vec::new();
-    let mut ids = HashSet::new();
-
-    for entry in tftmeta_items().into_iter().chain(porofessor_items()) {
-        if ids.insert(entry.id.clone()) {
-            catalog.push(entry);
-        }
-    }
-
-    catalog
+    let adapters = adapters::configured_adapters();
+    adapters::catalog_from_adapters(&adapters)
 }
 
 fn filter_catalog(catalog: &[StoreItem], query: &str, provider: &str) -> Vec<StoreItem> {
@@ -483,6 +364,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn builds_unique_catalog_ids() {
@@ -500,6 +382,14 @@ mod tests {
         let filtered = filter_catalog(&catalog, "module", "porofessor");
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, "porofessor-rune-assist");
+    }
+
+    #[test]
+    fn adapter_registry_contains_expected_sources() {
+        let providers = store_providers();
+        assert_eq!(providers.len(), 2);
+        assert!(providers.iter().any(|p| p.id == "tftmeta"));
+        assert!(providers.iter().any(|p| p.id == "porofessor"));
     }
 
     #[test]

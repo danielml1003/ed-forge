@@ -23,7 +23,7 @@ Last updated: 2026-02-20
 
 ### M2 - Live Provider Integrations
 
-- [ ] Add adapter trait and module structure
+- [x] Add adapter trait and module structure
 - [ ] Implement TFTMeta live adapter
 - [ ] Implement Porofessor live adapter
 - [ ] Add cache fallback and data freshness timestamps
@@ -55,7 +55,8 @@ Last updated: 2026-02-20
 
 ## Progress Log
 
-- 2026-02-20: Completed M1 polish and added command-level lifecycle tests for Library/Runtime.`r`n- 2026-02-20: Built original Discover/Library/Runtime architecture and shipped working Tauri build.
+- 2026-02-20: Completed M2.1 adapter trait and module structure with validated build/test pipeline.`r`n- 2026-02-20: Completed M1 polish and added command-level lifecycle tests for Library/Runtime.`r`n- 2026-02-20: Built original Discover/Library/Runtime architecture and shipped working Tauri build.
 - 2026-02-20: Added CI workflow and validated local quality gates.
 - 2026-02-20: Pushed foundation to `main` on GitHub repository.
+
 
