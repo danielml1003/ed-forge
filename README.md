@@ -61,3 +61,7 @@ Runtime commands:
 - `cargo clippy --all-targets --all-features --manifest-path src-tauri/Cargo.toml -- -D warnings`
 - `cargo test --all-features --manifest-path src-tauri/Cargo.toml`
 - `npm.cmd run build`
+
+## Roadmap and Progress
+
+- Roadmap: docs/roadmap.md`n- Checklist and log: docs/progress-checklist.md`n

@@ -1,5 +1,18 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+const tauri = window.__TAURI__;
+
+if (!tauri?.core?.invoke || !tauri?.event?.listen) {
+  const root = document.querySelector(".shell");
+  if (root) {
+    const warning = document.createElement("section");
+    warning.className = "card";
+    warning.innerHTML = "<h2>Runtime Error</h2><p class='muted'>Tauri API is unavailable. Start with <code>npm run dev</code> inside the app folder.</p>";
+    root.prepend(warning);
+  }
+  throw new Error("Tauri API unavailable");
+}
+
+const { invoke } = tauri.core;
+const { listen } = tauri.event;
 
 const tabs = document.querySelectorAll(".tab");
 const screens = document.querySelectorAll(".screen");
@@ -257,12 +270,14 @@ runtimeForm?.addEventListener("submit", async (event) => {
   await loadRuntime();
 });
 
-await listen("store-refreshed", () => {
-  void loadDiscover();
-});
+(async () => {
+  await listen("store-refreshed", () => {
+    void loadDiscover();
+  });
 
-await listen("library-updated", async () => {
-  await Promise.all([loadLibrary(), loadRuntime()]);
-});
+  await listen("library-updated", async () => {
+    await Promise.all([loadLibrary(), loadRuntime()]);
+  });
 
-await initialize();
+  await initialize();
+})();
