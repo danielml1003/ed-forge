@@ -191,22 +191,9 @@ fn library_save_item(
         .library_apps
         .lock()
         .map_err(|_| "library lock poisoned".to_string())?;
-
-    if let Some(existing) = library.iter().find(|entry| entry.id == found.id).cloned() {
-        return Ok(Some(existing));
-    }
-
-    let entry = LibraryApp {
-        id: found.id,
-        name: found.name,
-        category: found.category,
-        provider_name: found.provider_name,
-        version: "1.0.0".to_string(),
-        state: "ready".to_string(),
-        last_launched: None,
+    let Some(entry) = library_save_from_catalog(&found, &mut library) else {
+        return Ok(None);
     };
-
-    library.push(entry.clone());
     app.emit("library-updated", ())
         .map_err(|e| format!("event emit failed: {e}"))?;
 
@@ -224,13 +211,10 @@ fn library_launch_item(
         .lock()
         .map_err(|_| "library lock poisoned".to_string())?;
 
-    let Some(entry) = library.iter_mut().find(|entry| entry.id == item) else {
+    let result = library_launch(&mut library, &item, now_stamp().as_str());
+    let Some(result) = result else {
         return Ok(None);
     };
-
-    entry.state = "running".to_string();
-    entry.last_launched = Some(now_stamp());
-    let result = entry.clone();
 
     app.emit("library-updated", ())
         .map_err(|e| format!("event emit failed: {e}"))?;
@@ -249,9 +233,7 @@ fn library_remove_item(
         .lock()
         .map_err(|_| "library lock poisoned".to_string())?;
 
-    let before = library.len();
-    library.retain(|entry| entry.id != item);
-    let removed = library.len() != before;
+    let removed = library_remove(&mut library, &item);
 
     if removed {
         app.emit("library-updated", ())
@@ -274,16 +256,7 @@ fn runtime_get_config(state: State<RuntimeState>) -> Result<RuntimeOverview, Str
         .lock()
         .map_err(|_| "library lock poisoned".to_string())?;
 
-    Ok(RuntimeOverview {
-        low_resource_mode: config.low_resource_mode,
-        ingestion_enabled: config.ingestion_enabled,
-        sync_interval_sec: config.sync_interval_sec,
-        library_count: library.len(),
-        running_count: library
-            .iter()
-            .filter(|entry| entry.state == "running")
-            .count(),
-    })
+    Ok(runtime_build_overview(&config, &library))
 }
 
 #[tauri::command]
@@ -296,9 +269,7 @@ fn runtime_update_config(
         .lock()
         .map_err(|_| "runtime config lock poisoned".to_string())?;
 
-    config.low_resource_mode = payload.low_resource_mode;
-    config.ingestion_enabled = payload.ingestion_enabled;
-    config.sync_interval_sec = payload.sync_interval_sec.clamp(5, 300);
+    runtime_apply_update(&mut config, &payload);
 
     drop(config);
     runtime_get_config(state)
@@ -310,6 +281,60 @@ fn now_stamp() -> String {
         .map(|duration| duration.as_secs())
         .unwrap_or(0);
     secs.to_string()
+}
+
+fn library_save_from_catalog(
+    item: &StoreItem,
+    library: &mut Vec<LibraryApp>,
+) -> Option<LibraryApp> {
+    if let Some(existing) = library.iter().find(|entry| entry.id == item.id).cloned() {
+        return Some(existing);
+    }
+
+    let entry = LibraryApp {
+        id: item.id.clone(),
+        name: item.name.clone(),
+        category: item.category.clone(),
+        provider_name: item.provider_name.clone(),
+        version: "1.0.0".to_string(),
+        state: "ready".to_string(),
+        last_launched: None,
+    };
+
+    library.push(entry.clone());
+    Some(entry)
+}
+
+fn library_launch(library: &mut [LibraryApp], item_id: &str, stamp: &str) -> Option<LibraryApp> {
+    let entry = library.iter_mut().find(|entry| entry.id == item_id)?;
+    entry.state = "running".to_string();
+    entry.last_launched = Some(stamp.to_string());
+    Some(entry.clone())
+}
+
+fn library_remove(library: &mut Vec<LibraryApp>, item_id: &str) -> bool {
+    let before = library.len();
+    library.retain(|entry| entry.id != item_id);
+    before != library.len()
+}
+
+fn runtime_apply_update(config: &mut RuntimeConfig, payload: &RuntimeConfigUpdate) {
+    config.low_resource_mode = payload.low_resource_mode;
+    config.ingestion_enabled = payload.ingestion_enabled;
+    config.sync_interval_sec = payload.sync_interval_sec.clamp(5, 300);
+}
+
+fn runtime_build_overview(config: &RuntimeConfig, library: &[LibraryApp]) -> RuntimeOverview {
+    RuntimeOverview {
+        low_resource_mode: config.low_resource_mode,
+        ingestion_enabled: config.ingestion_enabled,
+        sync_interval_sec: config.sync_interval_sec,
+        library_count: library.len(),
+        running_count: library
+            .iter()
+            .filter(|entry| entry.state == "running")
+            .count(),
+    }
 }
 
 fn store_providers() -> Vec<StoreProvider> {
@@ -475,5 +500,50 @@ mod tests {
         let filtered = filter_catalog(&catalog, "module", "porofessor");
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, "porofessor-rune-assist");
+    }
+
+    #[test]
+    fn library_save_launch_remove_lifecycle() {
+        let catalog = build_store_catalog();
+        let item = catalog
+            .iter()
+            .find(|entry| entry.id == "tftmeta-comp-scout")
+            .expect("fixture exists");
+        let mut library = Vec::new();
+
+        let saved = library_save_from_catalog(item, &mut library).expect("saved");
+        assert_eq!(saved.state, "ready");
+        assert_eq!(library.len(), 1);
+
+        let duplicate = library_save_from_catalog(item, &mut library).expect("duplicate returns");
+        assert_eq!(duplicate.id, saved.id);
+        assert_eq!(library.len(), 1);
+
+        let launched = library_launch(&mut library, &saved.id, "123").expect("launches");
+        assert_eq!(launched.state, "running");
+        assert_eq!(launched.last_launched.as_deref(), Some("123"));
+
+        assert!(library_remove(&mut library, &saved.id));
+        assert!(library.is_empty());
+        assert!(!library_remove(&mut library, "missing"));
+    }
+
+    #[test]
+    fn runtime_update_clamps_interval() {
+        let mut config = RuntimeConfig {
+            low_resource_mode: true,
+            ingestion_enabled: false,
+            sync_interval_sec: 30,
+        };
+
+        let payload = RuntimeConfigUpdate {
+            low_resource_mode: false,
+            ingestion_enabled: true,
+            sync_interval_sec: 1,
+        };
+        runtime_apply_update(&mut config, &payload);
+        assert!(!config.low_resource_mode);
+        assert!(config.ingestion_enabled);
+        assert_eq!(config.sync_interval_sec, 5);
     }
 }

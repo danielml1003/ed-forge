@@ -1,4 +1,4 @@
-const tauri = window.__TAURI__;
+ï»¿const tauri = window.__TAURI__;
 
 if (!tauri?.core?.invoke || !tauri?.event?.listen) {
   const root = document.querySelector(".shell");
@@ -41,6 +41,10 @@ const state = {
   selectedAppId: null,
   library: [],
 };
+
+function isSaved(appId) {
+  return state.library.some((entry) => entry.id === appId);
+}
 
 function activateScreen(targetId) {
   tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.target === targetId));
@@ -94,18 +98,26 @@ function renderDiscoverList() {
 
   discoverListEl.innerHTML = "";
   for (const app of state.apps) {
+    const saved = isSaved(app.id);
     const card = document.createElement("article");
     card.className = "item";
     card.innerHTML = `
       <div class="item-title">${app.name}</div>
-      <div class="item-meta">${app.providerName} • ${app.category} • $${app.priceUsd.toFixed(2)}</div>
+      <div class="item-meta">${app.providerName} â€¢ ${app.category} â€¢ $${app.priceUsd.toFixed(2)}</div>
       <div class="item-actions">
         <button type="button" data-action="detail" data-id="${app.id}">Details</button>
-        <button type="button" data-action="save" data-id="${app.id}">Save to Library</button>
+        <button type="button" data-action="save" data-id="${app.id}" ${saved ? "disabled" : ""}>${saved ? "Saved" : "Save to Library"}</button>
       </div>
     `;
     discoverListEl.append(card);
   }
+}
+
+function formatStamp(stamp) {
+  if (!stamp) return "never";
+  const value = Number(stamp);
+  if (!Number.isFinite(value)) return stamp;
+  return new Date(value * 1000).toLocaleString();
 }
 
 function renderLibrary() {
@@ -121,14 +133,15 @@ function renderLibrary() {
 
   libraryListEl.innerHTML = "";
   for (const app of state.library) {
+    const isRunning = app.state === "running";
     const card = document.createElement("article");
     card.className = "item";
     card.innerHTML = `
       <div class="item-title">${app.name}</div>
-      <div class="item-meta">${app.providerName} • ${app.category} • v${app.version} • ${app.state}</div>
-      <div class="item-meta">Last launched: ${app.lastLaunched || "never"}</div>
+      <div class="item-meta">${app.providerName} â€¢ ${app.category} â€¢ v${app.version} â€¢ ${app.state}</div>
+      <div class="item-meta">Last launched: ${formatStamp(app.lastLaunched)}</div>
       <div class="item-actions">
-        <button type="button" data-action="launch" data-id="${app.id}">Launch</button>
+        <button type="button" data-action="launch" data-id="${app.id}" ${isRunning ? "disabled" : ""}>${isRunning ? "Running" : "Launch"}</button>
         <button type="button" data-action="remove" data-id="${app.id}">Remove</button>
       </div>
     `;
@@ -221,6 +234,7 @@ discoverListEl?.addEventListener("click", async (event) => {
     if (saved) {
       logActivity(`saved to library: ${saved.name}`);
       await Promise.all([loadLibrary(), loadRuntime()]);
+      renderDiscoverList();
     }
   }
 });
@@ -238,6 +252,7 @@ libraryListEl?.addEventListener("click", async (event) => {
     if (launched) {
       logActivity(`launched app: ${launched.name}`);
       await Promise.all([loadLibrary(), loadRuntime()]);
+      renderDiscoverList();
     }
     return;
   }
@@ -247,12 +262,14 @@ libraryListEl?.addEventListener("click", async (event) => {
     if (removed) {
       logActivity(`removed from library: ${id}`);
       await Promise.all([loadLibrary(), loadRuntime()]);
+      renderDiscoverList();
     }
   }
 });
 
 libraryRefreshButton?.addEventListener("click", async () => {
   await Promise.all([loadLibrary(), loadRuntime()]);
+  renderDiscoverList();
   logActivity("library refreshed");
 });
 
@@ -277,6 +294,7 @@ runtimeForm?.addEventListener("submit", async (event) => {
 
   await listen("library-updated", async () => {
     await Promise.all([loadLibrary(), loadRuntime()]);
+    renderDiscoverList();
   });
 
   await initialize();

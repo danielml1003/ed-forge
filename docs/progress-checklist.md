@@ -1,4 +1,4 @@
-# ed-forge Progress Checklist
+﻿# ed-forge Progress Checklist
 
 Last updated: 2026-02-20
 
@@ -18,8 +18,8 @@ Last updated: 2026-02-20
 - [x] Backend command contracts implemented for Store/Library/Runtime
 - [x] Frontend wired to backend commands (interactive, not static)
 - [x] CI baseline configured (`fmt`, `clippy`, `test`, `build`)
-- [ ] UX polish pass for flow clarity and consistency
-- [ ] Add integration tests for command-level behavior
+- [x] UX polish pass for flow clarity and consistency
+- [x] Add integration tests for command-level behavior
 
 ### M2 - Live Provider Integrations
 
@@ -55,6 +55,7 @@ Last updated: 2026-02-20
 
 ## Progress Log
 
-- 2026-02-20: Built original Discover/Library/Runtime architecture and shipped working Tauri build.
+- 2026-02-20: Completed M1 polish and added command-level lifecycle tests for Library/Runtime.`r`n- 2026-02-20: Built original Discover/Library/Runtime architecture and shipped working Tauri build.
 - 2026-02-20: Added CI workflow and validated local quality gates.
 - 2026-02-20: Pushed foundation to `main` on GitHub repository.
+
